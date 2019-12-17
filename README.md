@@ -27,6 +27,11 @@ make
 ## Sample
 
 ```
+cd build
+./r5 0.0.0.0:50001
+```
+
+```
 cd sample
 go run main.go
 ```

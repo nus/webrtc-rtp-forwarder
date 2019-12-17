@@ -1,0 +1,108 @@
+diff --git a/call/call.cc b/call/call.cc
+index 971ebbdd1e..fece5624ba 100644
+--- a/call/call.cc
++++ b/call/call.cc
+@@ -233,6 +233,8 @@ class Call final : public webrtc::Call,
+ 
+   void SetClientBitratePreferences(const BitrateSettings& preferences) override;
+ 
++  void SetRtpPacketCallback(RtpPacketCallback *callback) override;
++
+  private:
+   DeliveryStatus DeliverRtcp(MediaType media_type,
+                              const uint8_t* packet,
+@@ -382,6 +384,8 @@ class Call final : public webrtc::Call,
+   bool is_target_rate_observer_registered_
+       RTC_GUARDED_BY(&configuration_sequence_checker_) = false;
+ 
++  RtpPacketCallback *rtp_packet_callback_ = nullptr;
++
+   RTC_DISALLOW_COPY_AND_ASSIGN(Call);
+ };
+ }  // namespace internal
+@@ -525,6 +529,10 @@ void Call::SetClientBitratePreferences(const BitrateSettings& preferences) {
+   GetTransportControllerSend()->SetClientBitratePreferences(preferences);
+ }
+ 
++void Call::SetRtpPacketCallback(RtpPacketCallback *callback) {
++  rtp_packet_callback_ = callback;
++}
++
+ void Call::UpdateHistograms() {
+   RTC_HISTOGRAM_COUNTS_100000(
+       "WebRTC.Call.LifetimeInSeconds",
+@@ -1274,6 +1282,11 @@ PacketReceiver::DeliveryStatus Call::DeliverRtp(MediaType media_type,
+         first_received_rtp_audio_ms_.emplace(arrival_time_ms);
+       }
+       last_received_rtp_audio_ms_.emplace(arrival_time_ms);
++
++      if (rtp_packet_callback_) {
++        rtp_packet_callback_->OnRtpPacket(parsed_packet);
++      }
++
+       return DELIVERY_OK;
+     }
+   } else if (media_type == MediaType::VIDEO) {
+@@ -1288,6 +1301,11 @@ PacketReceiver::DeliveryStatus Call::DeliverRtp(MediaType media_type,
+         first_received_rtp_video_ms_.emplace(arrival_time_ms);
+       }
+       last_received_rtp_video_ms_.emplace(arrival_time_ms);
++
++      if (rtp_packet_callback_) {
++        rtp_packet_callback_->OnRtpPacket(parsed_packet);
++      }
++
+       return DELIVERY_OK;
+     }
+   }
+diff --git a/call/call.h b/call/call.h
+index 77cd3d2690..77c6e8e697 100644
+--- a/call/call.h
++++ b/call/call.h
+@@ -31,6 +31,12 @@
+ 
+ namespace webrtc {
+ 
++class RtpPacketCallback {
++public:
++  virtual ~RtpPacketCallback() {}
++  virtual void OnRtpPacket(const RtpPacketReceived &packet) = 0;
++};
++
+ // A Call instance can contain several send and/or receive streams. All streams
+ // are assumed to have the same remote endpoint and will share bitrate estimates
+ // etc.
+@@ -116,6 +122,8 @@ class Call {
+   virtual void SetClientBitratePreferences(
+       const BitrateSettings& preferences) = 0;
+ 
++  virtual void SetRtpPacketCallback(RtpPacketCallback *callback) = 0;
++
+   virtual ~Call() {}
+ };
+ 
+diff --git a/call/degraded_call.h b/call/degraded_call.h
+index 49230ca1ed..fdefb69b8e 100644
+--- a/call/degraded_call.h
++++ b/call/degraded_call.h
+@@ -153,6 +153,8 @@ class DegradedCall : public Call, private PacketReceiver {
+   void SetClientBitratePreferences(
+       const webrtc::BitrateSettings& preferences) override {}
+ 
++  void SetRtpPacketCallback(RtpPacketCallback *callback) override {}
++
+   const absl::optional<BuiltInNetworkBehaviorConfig> send_config_;
+   SimulatedNetwork* send_simulated_network_;
+   std::unique_ptr<FakeNetworkPipeOnTaskQueue> send_pipe_;
+diff --git a/pc/peer_connection.h b/pc/peer_connection.h
+index 428c2e8f5e..f4e729129b 100644
+--- a/pc/peer_connection.h
++++ b/pc/peer_connection.h
+@@ -308,6 +308,7 @@ class PeerConnection : public PeerConnectionInternal,
+   }
+   void RequestUsagePatternReportForTesting();
+ 
++  Call* CallPtr() { return call_ptr_; }
+  protected:
+   ~PeerConnection() override;
+ 

@@ -1,0 +1,44 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: submoduels
+      run: git submodule update --init --recursive
+    - name: setup tools
+      run: |
+        mkdir opt
+        curl -L https://github.com/Kitware/CMake/releases/download/v3.16.1/cmake-3.16.1-Linux-x86_64.sh > opt/cmake.sh
+        sh opt/cmake.sh --skip-license --prefix=`pwd`/opt
+        export PATH=`pwd`/opt/bin:$PATH
+        cmake --version
+    - name: configure
+      run: |
+        pwd
+        export PATH=`pwd`/opt/bin:$PATH
+        mkdir build
+        cd build
+        cmake --version
+        cmake ..
+    - name: make webrtc
+      run: |
+        export PATH=`pwd`/opt/bin:$PATH
+        cd build
+        cmake --version
+        make setup_webrtc
+        make patch_webrtc
+        make build_webrtc
+    - name: make
+      run: |
+        cd build
+        make
+    - name: ctest -VV
+      run: |
+        cd build
+        ctest

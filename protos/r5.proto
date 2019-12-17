@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package r5;
+
+service R5Service {
+    rpc CreatePeer(CreatePeerRequest) returns (CreatePeerResponse) {}
+    rpc SetRemoteDescription(SetRemoteDescriptionRequest) returns (SetRemoteDescriptionResponse) {}
+    rpc AddIceCandidate(AddIceCandidateRequest) returns (AddIceCandidateResponse) {}
+    rpc DestroyPeer(DestroyPeerRequest) returns (DestroyPeerResponse) {}
+    // TODO Add a stream for PeerConnection event.
+}
+
+message CreatePeerRequest {
+    message RtpTarget {
+        string host = 1;
+        uint32 port = 2;
+    }
+
+    bool audio = 1;
+    bool video = 2;
+    RtpTarget audio_rtp = 3;
+    RtpTarget video_rtp = 4;
+    string ice_server_uri = 5;
+}
+
+message CreatePeerResponse {
+    string offer_sdp = 1;
+    string rtp_sdp = 2;
+    string peer_id = 3;
+}
+
+message SetRemoteDescriptionRequest {
+    string answer_sdp = 1;
+    string peer_id = 2;
+}
+
+message SetRemoteDescriptionResponse {
+}
+
+message AddIceCandidateRequest {
+}
+
+message AddIceCandidateResponse {
+}
+
+message DestroyPeerRequest {
+    string peer_id = 1;
+}
+
+message DestroyPeerResponse {
+}
